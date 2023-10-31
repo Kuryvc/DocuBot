@@ -1,86 +1,65 @@
 import streamlit as st
 from dotenv import load_dotenv
-from PyPDF2 import PdfReader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings, HuggingFaceInstructEmbeddings
-from langchain.vectorstores.faiss import FAISS
-from langchain.memory import ConversationBufferMemory
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import ConversationalRetrievalChain ##allows to chat with context
-import pinecone, os, sys
+import os
+
+# Importando las funciones de los nuevos archivos
+from scripts.pdf_processing import get_pdf_text, get_text_chunks
+from scripts.vectorization import get_vector_index
+from scripts.conversation import get_conversation_chain, handle_question
 from htmlTemplate import css, bot_template, user_template
-from langchain.llms.huggingface_hub import HuggingFaceHub
 
-def get_pdf_text(pdf_docs): #pfdocs contains one or mor pdf files
-    text = ""
-    for pdf in pdf_docs: #loop through pdfs
-        pdf_reader = PdfReader(pdf)
-        for page in pdf_reader.pages: # loop through pages on current pdf_reader
-            text += page.extract_text()
-    return text
+# Placeholder para estructura de datos
+users_data = {
+    'username': {   # Nombre del usuario
+        'password': 'hashed_password',  # Contraseña del usuario (encriptada)
+        'searches': {  # Historial de búsquedas del usuario
+            'search_name': {   # Nombre o identificador de una búsqueda específica
+                'text_chunks': [],  # Fragmentos de texto relacionados con esa búsqueda
+                'vector_store': None  # Información vectorizada (por ejemplo, para búsquedas rápidas o análisis)
+            }
+        }
+    }
+}
+def register(username, password):
+    if username not in users_data:
+        # Asegúrate de hashear la contraseña antes de guardarla
+        hashed_password = password  # Deberías cambiar esto por una función de hashing real
+        users_data[username] = {'password': hashed_password, 'searches': {}}
+        st.session_state.authenticated = True
+        st.session_state.username = username
+        st.session_state.chat_history = []
+        return True
+    else:
+        st.warning("El usuario ya existe.")
+        return False
 
-def get_text_chunks(pdf_text):
-    text_splitter = CharacterTextSplitter(separator="\n", 
-                                          chunk_size = 1000, 
-                                          chunk_overlap = 200,
-                                          length_function = len)
-    
-    chunks = text_splitter.split_text(pdf_text)
-    #WITH PINECONE
-    # chunks = text_splitter.create_documents([pdf_text])
-    # for chunk in chunks:
-    #     chunk.page_content = chunk.page_content.replace('\n', ' ')
-    return chunks
+def login(username, password):
+    user_data = users_data.get(username, {})
+    hashed_password = password  # Cambia esto por una función de hashing real
+    if user_data and user_data['password'] == hashed_password:
+        st.session_state.authenticated = True
+        st.session_state.username = username
+        st.session_state.chat_history = []
+        return True
+    else:
+        st.warning("Usuario o contraseña incorrecta.")
+        return False
 
+def sidebar_login():
+    st.sidebar.header("Inicio de sesión/Registro")
+    username = st.sidebar.text_input("Usuario")
+    password = st.sidebar.text_input("Contraseña", type="password")
 
-def get_vector_index(text_chunks): 
-    #With PINECONE
-    # pinecone.init(api_key=os.getenv('PINECONE_API_KEY'), environment=os.getenv('PINECONE_ENV'))
-    # indexName = "text-vectors"
-    
-    # if indexName not in pinecone.list_indexes():
-    #     print("Creating new")
-    #     pinecone.create_index(indexName, dimension=1024) 
-    
-    # index = pinecone.Index(indexName)
-    
-    # insert_vectors(indexName, text_chunks)  
+    if st.sidebar.button("Login"):
+        login(username, password)
 
-    # embeddings = OpenAIEmbeddings()
-    embeddings = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl")
-    vectoreStore = FAISS.from_texts(texts=text_chunks,embedding=embeddings)
-    
-    return vectoreStore
-
-#WITH PINECONE
-# def insert_vectors(index, text_chunks):
-#     embeddings = OpenAIEmbeddings()
-#     Pinecone.from_documents(text_chunks, embeddings, index_name=index)
-
-def get_conversation_chain(vectorstore):
-    # llm = ChatOpenAI()
-    llm = HuggingFaceHub(repo_id="google/flan-t5-large", model_kwargs={"temperature":0.5, "max_length":1024})
-    memory = ConversationBufferMemory(memory_key="chat_history",return_messages=True)
-    conversation_chain = ConversationalRetrievalChain.from_llm(llm=llm, retriever=vectorstore.as_retriever(), memory=memory)
-    
-    return conversation_chain
-
-def handle_question(user_question):
-    response = st.session_state.conversation({'question': user_question})
-    st.session_state.chat_history = response['chat_history']
-    
-    for i, message in enumerate(st.session_state.chat_history):
-        if i % 2 == 0:
-            st.write(user_template.replace('{{MSG}}', message.content), unsafe_allow_html=True)
-        else:
-            st.write(bot_template.replace('{{MSG}}', message.content), unsafe_allow_html=True)
-            
-    
-
+    if st.sidebar.button("Registrar"):
+        register(username, password)
+        
 def main():
     load_dotenv()
     
-    st.set_page_config(page_title= "Chat with your files", page_icon= ":books:")
+    st.set_page_config(page_title="Chat with your files", page_icon=":books:")
     st.write(css, unsafe_allow_html=True)
     
     if "conversation" not in st.session_state:
@@ -88,38 +67,31 @@ def main():
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = None
     
-    st.header("Chat with multiple files :books:")
-    user_question = st.text_input("Ask a question about your documents: ")
+    with st.sidebar:
+        if "username" in st.session_state:
+            st.sidebar.subheader(f"Bienvenido, {st.session_state.username}!")
+        st.subheader("Selecciona tus documentos")
+        pdf_docs = st.file_uploader("Sube tus archivos PDF y haz clic en procesar", accept_multiple_files=True)
+        
+        if st.button("Procesar"):
+            with st.spinner("Procesando"):
+                extracted_text = get_pdf_text(pdf_docs)
+                text_chunks = get_text_chunks(extracted_text)
+                vector_store = get_vector_index(text_chunks)
+                st.session_state.conversation = get_conversation_chain(vector_store)
+        
+    
+    st.header("Chat con tus archivos :books:")
+    user_question = st.text_input("Haz una pregunta acerca de tus documentos:")
     
     if user_question:
         handle_question(user_question)
-    
-    # st.write(user_template.replace("{{MSG}}", "Hello robot"), unsafe_allow_html=True)
-    # st.write(bot_template.replace("{{MSG}}", "Hello human"), unsafe_allow_html=True)
-    
-    with st.sidebar:
-        st.subheader("Select your documents")
-        pdf_docs = st.file_uploader("Upload PDFs files and click process", accept_multiple_files=True)
-        
-        if st.button("Process"):
-            with st.spinner("Processing"):
-                # get PDF text
-                extracted_text = get_pdf_text(pdf_docs)
-                # st.write(extracted_text)
-            
-                # get text chunks
-                text_chunks = get_text_chunks(extracted_text)
-                st.write(text_chunks)  
-            
-                # create vector store that in the future will be stored in a database and retrive them when coming back to them 
-                vector_store = get_vector_index(text_chunks)
-                
-                
-                ##create conversation chain
-                st.session_state.conversation = get_conversation_chain(vector_store)
-                
-            
-
 
 if __name__ == "__main__":
-    main()
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+        
+    if not st.session_state.authenticated:
+        sidebar_login()
+    else:
+        main()
