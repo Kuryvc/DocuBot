@@ -1,12 +1,11 @@
 import streamlit as st
 from dotenv import load_dotenv
-import os
 
 # Importando las funciones de los nuevos archivos
 from scripts.pdf_processing import get_pdf_text, get_text_chunks
 from scripts.vectorization import get_vector_index
 from scripts.conversation import get_conversation_chain, handle_question
-from htmlTemplate import css, bot_template, user_template
+from htmlTemplate import css
 from scripts.login import sidebar_login
 
         

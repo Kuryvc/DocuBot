@@ -1,7 +1,9 @@
+import streamlit as st
 from langchain.memory import ConversationBufferMemory
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
 from langchain.llms.huggingface_hub import HuggingFaceHub
+from htmlTemplate import user_template, bot_template
 
 def get_conversation_chain(vectorstore):
     llm = HuggingFaceHub(repo_id="google/flan-t5-large", model_kwargs={"temperature":0.5, "max_length":1024})
