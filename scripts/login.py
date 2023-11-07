@@ -1,6 +1,9 @@
 import streamlit as st
 import json
 import bcrypt
+import boto3
+from app import dynamodb
+
 
 def hash_password(password):
     # Genera una sal (salt) aleatoria para aumentar la seguridad
@@ -30,14 +33,25 @@ def register(username, password):
 
         with open('user_data.json', 'w') as user_data_file:
             json.dump(user_data, user_data_file)
+            
+        response = dynamodb.put_item(
+        TableName='tablaDeUsuarios',
+        Item={
+            'Username': {'S': username}, # 'S' es tipo string.
+            'Password': {'S': password},
+            'Searches': {'L': []}  # Initialize with an empty list. 'L' es tipo lista
+        })
         
         st.session_state.authenticated = True
         st.session_state.username = username
         st.session_state.chat_history = []
+        st.session_state.current_user = response
         return True
     else:
         st.warning("El usuario ya existe.")
         return False
+
+
 
 
 def login(username, password):
@@ -68,3 +82,16 @@ def sidebar_login():
 
     if st.sidebar.button("Registrar"):
         register(username, password)
+        
+        
+    # def authenticate_user(username, password):
+    #     response = dynamodb.get_item(
+    #     TableName='tablaDeUsuarios',
+    #     Key={'Username': {'S': username}}
+    # )
+    # item = response.get('Item') #El response trae la info del usuario en el key 'Item'
+
+    # if item and item.get('Password', {}).get('S') == password:
+    #     return True
+    # else:
+    #     return False
