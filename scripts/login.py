@@ -1,9 +1,7 @@
 import streamlit as st
 import json
 import bcrypt
-import boto3
-from app import dynamodb
-
+from scripts.db import dynamo_connection
 
 def hash_password(password):
     # Genera una sal (salt) aleatoria para aumentar la seguridad
@@ -34,8 +32,8 @@ def register(username, password):
         with open('user_data.json', 'w') as user_data_file:
             json.dump(user_data, user_data_file)
             
-        response = dynamodb.put_item(
-        TableName='tablaDeUsuarios',
+        response = dynamo_connection().(
+        TableName='DocuBot_users',
         Item={
             'Username': {'S': username}, # 'S' es tipo string.
             'Password': {'S': password},
@@ -82,7 +80,7 @@ def sidebar_login():
 
     if st.sidebar.button("Registrar"):
         register(username, password)
-        
+        print(st.session_state.current_user)
         
     # def authenticate_user(username, password):
     #     response = dynamodb.get_item(
