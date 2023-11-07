@@ -6,6 +6,7 @@ from langchain.llms.huggingface_hub import HuggingFaceHub
 from htmlTemplate import user_template, bot_template
 
 def get_conversation_chain(vectorstore):
+    # llm = ChatOpenAI()
     llm = HuggingFaceHub(repo_id="google/flan-t5-large", model_kwargs={"temperature":0.5, "max_length":1024})
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
     conversation_chain = ConversationalRetrievalChain.from_llm(llm=llm, retriever=vectorstore.as_retriever(), memory=memory)

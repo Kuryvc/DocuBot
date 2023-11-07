@@ -51,10 +51,10 @@ def login(username, password):
         st.session_state.authenticated = True
         st.session_state.username = username
         st.session_state.chat_history = []
-        return True
+        # return True
     else:
         st.warning("Usuario o contraseña incorrecta.")
-        return False
+        # return False
 
 
 
