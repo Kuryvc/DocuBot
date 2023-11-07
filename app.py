@@ -1,5 +1,7 @@
 import streamlit as st
 from dotenv import load_dotenv
+import boto3
+import os
 
 # Importando las funciones de los nuevos archivos
 from scripts.pdf_processing import get_pdf_text, get_text_chunks
@@ -20,6 +22,16 @@ def main():
         st.session_state.conversation = None
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = None
+
+    s3 = boto3.resource(
+        service_name = 's3',
+        region_name = 'us-east-1',
+        aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    )
+
+    for bucket in s3.buckets.all():
+        print (bucket.name)
     
     with st.sidebar:
         # print(st.session_state.new_search)
