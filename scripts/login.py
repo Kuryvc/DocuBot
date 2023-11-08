@@ -1,7 +1,8 @@
 import streamlit as st
 import json
 import bcrypt
-from scripts.db import dynamo_connection
+from scripts.db import dynamo_connection, dynamoConnectionSingleton
+    
 
 def hash_password(password):
     # Genera una sal (salt) aleatoria para aumentar la seguridad
@@ -21,52 +22,58 @@ def check_password(entered_password, hashed_password):
 
 
 def register(username, password):
-    with open('user_data.json', 'r') as user_data_file:
-        user_data = json.load(user_data_file)
+    dbconnection = dynamoConnectionSingleton.getConnection()
+    
+    response = dbconnection.get_item(
+        TableName='docuBotUsers',
+        Key={'userId': {'S': username}}
+    )    
 
-    if username not in user_data:
+    if 'Item' not in response:
         # Asegúrate de hashear la contraseña antes de guardarla
         hashed_password = hash_password(password)  # Utiliza tu función hash_password
-        user_data[username] = {'password': hashed_password.decode('utf-8'), 'searches': {}}
-
-        with open('user_data.json', 'w') as user_data_file:
-            json.dump(user_data, user_data_file)
-            
-        response = dynamo_connection().(
-        TableName='DocuBot_users',
-        Item={
-            'Username': {'S': username}, # 'S' es tipo string.
-            'Password': {'S': password},
-            'Searches': {'L': []}  # Initialize with an empty list. 'L' es tipo lista
+    
+        dbconnection.put_item(
+            TableName='docuBotUsers',
+            Item={
+                'userId': {'S': username},
+                'Username': {'S': username}, # 'S' es tipo string.
+                'Password': {'S': str(hashed_password, 'utf-8')},
+                'Searches': {'L': []}  # Initialize with an empty list. 'L' es tipo lista
         })
-        
-        st.session_state.authenticated = True
+                
+        # st.session_state.authenticated = True
         st.session_state.username = username
         st.session_state.chat_history = []
-        st.session_state.current_user = response
+        # st.session_state.current_user = response
         return True
     else:
         st.warning("El usuario ya existe.")
         return False
 
-
-
-
 def login(username, password):
-    with open('user_data.json', 'r') as user_data_file:
-        user_data = json.load(user_data_file)
-
-    user_info = user_data.get(username, {})
-    stored_password_hash = user_info.get('password', '').encode('utf-8')  # Convierte a bytes
-
-    if user_info and check_password(password, stored_password_hash):
+    
+    dbconnection = dynamoConnectionSingleton.getConnection()
+    
+    response = dbconnection.get_item(
+        TableName='docuBotUsers',
+        Key={'userId': {'S': username}}
+    )
+    
+    item = response.get('Item') #El response trae la info del usuario en el key 'Item'
+    print(item)
+    
+    storedPassword = item.get('Password', {}).get('S')
+    
+    if item and check_password(password, storedPassword.encode('utf-8')):
         st.session_state.authenticated = True
         st.session_state.username = username
         st.session_state.chat_history = []
-        # return True
+        return True
     else:
         st.warning("Usuario o contraseña incorrecta.")
-        # return False
+        
+        return False
 
 
 
@@ -79,8 +86,10 @@ def sidebar_login():
         login(username, password)
 
     if st.sidebar.button("Registrar"):
-        register(username, password)
-        print(st.session_state.current_user)
+        if register(username, password):
+            st.warning("Se ha creado el usuario con éxito. Ahora puede iniciar sesión")
+            
+        # print(st.session_state.current_user)
         
     # def authenticate_user(username, password):
     #     response = dynamodb.get_item(
