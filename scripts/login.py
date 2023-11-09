@@ -64,8 +64,7 @@ def register(username, password):
             print(f"The folder '{folder_name}' already exists.")
         else:
             # The folder doesn't exist; create the user folder in the S3 bucket
-            s3_connection.Object('docubotbucket', folder_name).put()
-        
+            s3_connection.Object('docubotbucket', folder_name).put()      
                 
     
         return True
