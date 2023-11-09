@@ -1,7 +1,8 @@
 import streamlit as st
 import json
 import bcrypt
-from scripts.db import dynamo_connection, dynamoConnectionSingleton
+from scripts.db import dynamoConnectionSingleton
+from scripts.s3 import s3ConnectionSingleton
     
 
 def hash_password(password):
@@ -24,11 +25,13 @@ def check_password(entered_password, hashed_password):
 def register(username, password):
     dbconnection = dynamoConnectionSingleton.getConnection()
     
+    #Verify thers no other equal username
     response = dbconnection.get_item(
         TableName='docuBotUsers',
         Key={'userId': {'S': username}}
     )    
 
+    #If no other user withe the same username already exists, then register
     if 'Item' not in response:
         # Asegúrate de hashear la contraseña antes de guardarla
         hashed_password = hash_password(password)  # Utiliza tu función hash_password
@@ -44,6 +47,27 @@ def register(username, password):
                 
         # st.session_state.authenticated = True
         st.session_state.username = username
+        
+        #create user folder en s3 bucket
+        s3_connection = s3ConnectionSingleton.getConnection()
+        folder_name = f'users/{username}/'
+        
+        bucket = s3_connection.Bucket('docubotbucket')
+        folder_exists = False
+
+        for obj in bucket.objects.filter(Prefix=folder_name):
+            if obj.key == folder_name:
+                folder_exists = True
+                break
+
+        if folder_exists:
+            print(f"The folder '{folder_name}' already exists.")
+        else:
+            # The folder doesn't exist; create the user folder in the S3 bucket
+            s3_connection.Object('docubotbucket', folder_name).put()
+        
+                
+    
         return True
     else:
         st.warning("El usuario ya existe.")
@@ -74,9 +98,6 @@ def login(username, password):
         
         return False
     
-    
-
-
 
 def sidebar_login():
     st.sidebar.header("Inicio de sesión/Registro")

@@ -10,6 +10,7 @@ from scripts.conversation import get_conversation_chain, handle_question
 from htmlTemplate import css
 from scripts.login import sidebar_login
 from scripts.history import sidebar_history
+from scripts.s3 import s3_connection, s3ConnectionSingleton
 
 
 def main():
@@ -23,24 +24,18 @@ def main():
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = None
     if "new_search" not in st.session_state:
-        st.session_state.new_search = None
+        st.session_state.new_search = False
     if "current_user" not in st.session_state:
         st.session_state.new_search = None 
     if "searchName" not in st.session_state:
         st.session_state.searchName = None 
+        
+    s3_connection = s3ConnectionSingleton.getConnection()
 
-    s3 = boto3.resource(
-        service_name="s3",
-        region_name="us-east-1",
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-    )
-
-    for bucket in s3.buckets.all():
+    for bucket in s3_connection.buckets.all():
         print(bucket.name)
 
     with st.sidebar:
-        # print(st.session_state.new_search)
         if not st.session_state.new_search:
             sidebar_history()
         else:
