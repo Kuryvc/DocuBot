@@ -22,6 +22,12 @@ def main():
         st.session_state.conversation = None
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = None
+    if "new_search" not in st.session_state:
+        st.session_state.new_search = None
+    if "current_user" not in st.session_state:
+        st.session_state.new_search = None 
+    if "searchName" not in st.session_state:
+        st.session_state.searchName = None 
 
     s3 = boto3.resource(
         service_name="s3",
@@ -74,9 +80,8 @@ def main():
 
 if __name__ == "__main__":
     if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-        st.session_state.new_search = False
-
+        st.session_state.authenticated = None    
+        
     if not st.session_state.authenticated:
         sidebar_login()
     else:

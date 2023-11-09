@@ -1,0 +1,161 @@
+PARA S3 Y DynamoDB
+
+Cada usuario tendrá un bucket de S3 cuya carpeta se llamará con su nombre de usuario, seguido del nombre de la búsqueda
+/kury/busqueda1/pdf1, pdf2, pdf3 ...
+     /busqueda2/pdf1, pdf2, pdf3 ...
+     /busqueda3/pdf1, pdf2, pdf3 ...
+
+Cada usuario y su información será guardado en un bd No relacional Dynamo DB, en la que también podría estar la lista del historial,
+de búsqueda, solo los nombre de las carpetas de búsqueda. Esto incluso se podría hacer con una función lambda y ahí ya matamos ese otro servicio. 
+
+
+En el menú laterial izquierdo de la página está primero un botón de nueva búsqueda. Debajo, en el mismo menú lateral, estará
+el historial de búsquedas que se llamarán igual que la carpeta del bucket. 
+
+Si el usuario presiona el botón de NUEVA búsqueda, pedirá el nombre de la búsqueda y ya se reemplazará por la sección de introducir 
+archivos y el botón de procesar. Cuando se de click al botón de procesar, además de hacer el procesamiento de los archivos, estos se deben 
+de subir al bucket, es decir, ir a la ruta de su /nombre y crear una nueva carpeta para la nueva búsqueda, donde ya se almacenarán ahora 
+sí los pdfs. También se podría ir al registro del usuario en DynamoDB para añadir la nueva búsqueda a algún arreglo de búsquedas dentro del registro
+
+Si el usuario presiona cualquiera de los historiales, se debe llamar una función que vaya al bucket para traer los pdfs y cargarlos 
+como si el usuario lo hubiera hecho por su cuenta, es decir, también se reemplazar por la sección de introducir archivos, pero estos
+ya estarán cargados para que el usuario solo presione el botón de procesar. En este caso, ya no debe subir lso arvhicos a S3 porque no 
+es una nueva búsqueda. 
+
+PARA SUBIR Y BUSCAR ARCHIVOS EN S3:
+
+In AWS: en aws S3 crear nuevo bucket con el nombre 'DocuBot', guardar la zona en la que se creó y el nombre dle bucket. 
+        ir al servicio de IAM y crear nuevo usuario. Darle full permissions en S3. Guardar el KeyId y el Secrete Access Key
+
+pip install boto3
+import boto3
+
+Create the connection: 
+s3 = boto3.resource(
+    service_name = 's3',
+    region_name = 'region...'
+    aws_access_key_id = 'keyid...fromIAMUser'
+    aws_secret_access_key = 'secretaccesskey...fromIAMUser'
+)
+
+**agregar las variables de las llaves al documento .env 
+
+Verificar la conección con s3 imprimiendo todos los buckets, en este caso será solo del de DocuBot
+for bucket in s3.buckets.all():
+    print (bucket.name)
+
+función para subir: 
+    
+    def upload_file_s3(username, searchName, files):
+        folderPath = f"{username}/{searchName}/"
+
+        for file in files: 
+            s3.upload_file(file, s3_bucket_name, f"{folderPath}{file.filename}")
+            #Option2
+            #s3.Bucket(s3_bucket_name).upload_file(file, f"{folderPath}{file.filename}")
+
+función para crear nuevo folder: 
+    def create_s3_folder(username, searchName):
+        folderPath = f"{username}/{searchName}/"
+        s3.put_object(Bucket=s3_bucket_name, Key=f"{folderPath}")
+
+función para importar el contenido de los archivos desde s3 a una variable en python: 
+    #Esto sería equivalente a la función de get_pdf_texts que hicimos pero desde el S3, no desde lo que suba el usuario. 
+    
+    #Para un solo archivo.
+
+    def get_file_from_s3(username, search, file_name):
+        folder_path = f"{username}/{search}/"
+        s3_object_name = f"{folder_path}{file_name}"
+
+        file = s3.get_object(Bucket = s3_bucket_name, Key = s3_object_name)
+        file_content = file['Body'].read()
+        return file_content
+    
+    #Creo que sería algo así mejor para sacar la info de todos los pdfs que haya en el folder
+    
+    def get_files_content_from_s3(username, searchName):
+        folder_path = f"{username}/{searchName}/"
+
+        objects = s3.list_objects_v2(Bucket=s3_bucket_name, Prefix=folder_path)
+        text = ""
+
+        for object in objects.get('Contents', []);
+            file_content = s3.get_object(Bucket=s3_bucket_name, Key=object['Key'])['Body'].read()
+            text += file_content
+        
+        return text
+
+
+PARA SUBIR USUARIOS A LA BD DE DYNAMO DB: 
+
+EN AWS: 
+    Crear la db y la tabla de USUARIOS
+
+
+import boto3
+
+#No estoy seguro si es con resource como el S3 o client como aquí. 
+
+dynamodb = boto3.client('dynamodb', region_name='region_name',
+                        aws_access_key_id='your_access_key_id',
+                        aws_secret_access_key='your_secret_access_key')
+
+En una supuesta página de registro...
+
+def register_user(username, password):
+    response = dynamodb.put_item(
+        TableName='tablaDeUsuarios',
+        Item={
+            'Username': {'S': username}, # 'S' es tipo string.
+            'Password': {'S': password},
+            'Searches': {'L': []}  # Initialize with an empty list. 'L' es tipo lista
+        }
+    )
+    return response
+
+para autenticarse en el login
+
+def authenticate_user(username, password):
+    response = dynamodb.get_item(
+        TableName='tablaDeUsuarios',
+        Key={'Username': {'S': username}}
+    )
+    item = response.get('Item') #El response trae la info del usuario en el key 'Item'
+
+    if item and item.get('Password', {}).get('S') == password:
+        return True
+    else:
+        return False
+
+
+PLAN PARA LA FUNCIÓN LAMBDA: 
+
+No sé aun si hacer el tema del tiempo, que cada después de cierto tiempo se borren o que cada que se inserte un nuevo folder de
+nueva búsqueda en S3, se inserté en la lista de 'Searches' del usuario el nombre de la nueva búsqueda. 
+Aquí hay un video que inserta cosas a DynamoDB después de inserte algo al bucket, no es exactamente lo mismo, pero de ahí saqué 
+la idea: https://www.youtube.com/watch?v=3oVKUM1-WXw&ab_channel=DataTech
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -44,8 +44,6 @@ def register(username, password):
                 
         # st.session_state.authenticated = True
         st.session_state.username = username
-        st.session_state.chat_history = []
-        # st.session_state.current_user = response
         return True
     else:
         st.warning("El usuario ya existe.")
@@ -61,19 +59,22 @@ def login(username, password):
     )
     
     item = response.get('Item') #El response trae la info del usuario en el key 'Item'
-    print(item)
+    print(item.get('Password')['S'])
     
     storedPassword = item.get('Password', {}).get('S')
     
     if item and check_password(password, storedPassword.encode('utf-8')):
         st.session_state.authenticated = True
-        st.session_state.username = username
-        st.session_state.chat_history = []
+        st.session_state.username = username #this will be used to create the folders of every user
+        st.session_state.current_user = item
+        
         return True
     else:
         st.warning("Usuario o contraseña incorrecta.")
         
         return False
+    
+    
 
 
 
