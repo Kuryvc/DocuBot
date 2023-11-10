@@ -16,21 +16,34 @@ def sidebar_history():
         
         s3_connection = s3ConnectionSingleton.getConnection()
         username = st.session_state.username
-        
-        bucket = s3_connection.Bucket('docubotbucket')
         folder_name = f'users/{username}/{new_search_title}/'
-        folder_exists = False
+        
+        try:
+            s3_connection.head_object(Bucket='docubotbucket', Key=folder_name)
+            st.warning(f"The folder '{folder_name}' already exists.")
+        except Exception as e :
+            if e.response['Error']['Code'] == '404':
+                # The folder doesn't exist; create the user folder in the S3 bucket
+                s3_connection.put_object(Bucket='docubotbucket', Key=folder_name)
+            else:
+                print(f"An error occurred: {e}")
+        
+        
+        # bucket = s3_connection.Bucket('docubotbucket')
+        # folder_name = f'users/{username}/{new_search_title}/'
+        # folder_exists = False
 
-        for obj in bucket.objects.filter(Prefix=folder_name):
-            if obj.key == folder_name:
-                folder_exists = True
-                break
+        # for obj in bucket.objects.filter(Prefix=folder_name):
+        #     if obj.key == folder_name:
+        #         folder_exists = True
+        #         break
 
-        if folder_exists:
-            print(f"The folder with the serach name: '{folder_name}' already exists.")
-        else:
-            # The folder doesn't exist; create the user folder in the S3 bucket
-            s3_connection.Object('docubotbucket', folder_name).put()
+        # if folder_exists:
+        #     print(f"The folder with the serach name: '{folder_name}' already exists.")
+        #     st.warning(f"The folder with the serach name: '{new_search_title}' already exists.")
+        # else:
+        #     # The folder doesn't exist; create the user folder in the S3 bucket
+        #     s3_connection.Object('docubotbucket', folder_name).put()
         
         
 

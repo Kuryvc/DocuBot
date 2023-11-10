@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 def s3_connection():
     load_dotenv()
     
-    s3 = boto3.resource(
+    s3 = boto3.client(
         service_name="s3",
         region_name="us-east-1",
         aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
