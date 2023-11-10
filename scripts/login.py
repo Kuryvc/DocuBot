@@ -105,16 +105,3 @@ def sidebar_login():
         if register(username, password):
             st.warning("Se ha creado el usuario con éxito. Ahora puede iniciar sesión")
             
-        # print(st.session_state.current_user)
-        
-    # def authenticate_user(username, password):
-    #     response = dynamodb.get_item(
-    #     TableName='tablaDeUsuarios',
-    #     Key={'Username': {'S': username}}
-    # )
-    # item = response.get('Item') #El response trae la info del usuario en el key 'Item'
-
-    # if item and item.get('Password', {}).get('S') == password:
-    #     return True
-    # else:
-    #     return False
