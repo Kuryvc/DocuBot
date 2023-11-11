@@ -9,7 +9,7 @@ from scripts.vectorization import get_vector_index
 from scripts.conversation import get_conversation_chain, handle_question
 from htmlTemplate import css
 from scripts.login import sidebar_login
-from scripts.history import sidebar_history
+from scripts.history import sidebar_history, Response
 from scripts.s3 import s3_connection, s3ConnectionSingleton
 
 
@@ -26,9 +26,13 @@ def main():
     if "new_search" not in st.session_state:
         st.session_state.new_search = False
     if "current_user" not in st.session_state:
-        st.session_state.new_search = None 
+        st.session_state.current_user = None 
     if "searchName" not in st.session_state:
         st.session_state.searchName = None 
+    if "old_search" not in st.session_state:
+        st.session_state.old_search = False
+    if "searchSelected" not in st.session_state:
+        st.session_state.searchSelected = False
         
     s3_connection = s3ConnectionSingleton.getConnection()
 
@@ -36,26 +40,36 @@ def main():
     #     print(bucket.name)
 
     with st.sidebar:
-        if not st.session_state.new_search:
+        if not st.session_state.searchSelected:
             sidebar_history()
         else:
+            
             if "username" in st.session_state:
                 st.sidebar.subheader(f"Bienvenido, {st.session_state.username}!")
-            st.subheader("Selecciona tus documentos")
-            pdf_docs = st.file_uploader(
-                "Sube tus archivos PDF y haz clic en procesar",
-                accept_multiple_files=True,
-            )
+            #Cuando haya elegido new search
+            
+            if st.session_state.new_search:
+                st.subheader(f'Selecciona tus documentos de la nueva búsqueda: "{st.session_state.searchName}"')
+                pdf_docs = st.file_uploader("Sube tus archivos PDF y haz clic en procesar ",accept_multiple_files=True)
+            
+            elif st.session_state.old_search:
+                st.subheader(f'Sus documentos de las búsqueda "{st.session_state.searchName}" se han cargado. Haga click en procesar para comenzar a preguntar')
+                                
 
             if st.button("Procesar"):
                 with st.spinner("Procesando"):
                     
-                    upload_pdf_toS3(pdf_docs);             
-                    # extracted_text = get_pdf_text(pdf_docs)
-                    # text_chunks = get_text_chunks(extracted_text)
-                    # vector_store = get_vector_index(text_chunks)
-                    # st.session_state.conversation = get_conversation_chain(vector_store)
-
+                    if st.session_state.new_search:
+                        upload_pdf_toS3(pdf_docs);     
+                        extracted_text = get_pdf_text(pdf_docs)
+                    elif st.session_state.old_search:
+                        extracted_text = Response.get_response()
+                    
+                    text_chunks = get_text_chunks(extracted_text)
+                    print(text_chunks)
+                    vector_store = get_vector_index(text_chunks)
+                    st.session_state.conversation = get_conversation_chain(vector_store)
+                                
     st.header("Chat con tus archivos :books:")
     user_question = st.text_input("Haz una pregunta acerca de tus documentos:")
 
