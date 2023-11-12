@@ -98,10 +98,17 @@ def sidebar_login():
     username = st.sidebar.text_input("Usuario")
     password = st.sidebar.text_input("Contraseña", type="password")
 
-    if st.sidebar.button("Login"):
-        login(username, password)
+    if st.sidebar.button("Login") and username and password:
+        try:
+            login(username, password)
+        except Exception as e :
+            st.warning("Error al registrar usuario")
+            print(e)
 
-    if st.sidebar.button("Registrar"):
-        if register(username, password):
-            st.warning("Se ha creado el usuario con éxito. Ahora puede iniciar sesión")
-            
+    if st.sidebar.button("Registrar") and username and password:
+        try:
+            if register(username, password):
+                st.warning("Se ha creado el usuario con éxito. Ahora puede iniciar sesión")
+        except Exception as e :
+            st.warning("Error al registrar usuario")
+            print(e)
